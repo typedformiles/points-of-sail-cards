@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14284b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Points of Sail Cards</title>
+<style>
+  :root {
+    --navy: #14284b; --cyan: #0a8fb5; --ink: #1b1f24; --muted: #66707a;
+    --bg: #f4f6f8; --card: #ffffff; --line: #dde3e8; --ask-bg: #e8f6fb; --show-bg: #eef1f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --navy: #8fb3ff; --cyan: #4cc3e6; --ink: #e8ecf0; --muted: #9aa5b0;
+      --bg: #0e1116; --card: #171b22; --line: #2a313b; --ask-bg: #12262e; --show-bg: #1a2130;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 19px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    user-select: none; -webkit-user-select: none;
+  }
+  header {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 12px 16px 8px; cursor: pointer;
+  }
+  header .stage { font-weight: 700; color: var(--navy); font-size: 16px; }
+  header .time { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bar { height: 3px; background: var(--line); margin: 0 16px; border-radius: 2px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--cyan); width: 0; transition: width .2s; }
+  main { flex: 1; display: flex; padding: 12px 16px; min-height: 0; }
+  .card {
+    flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;
+  }
+  .card p { margin: 0; }
+  .card b { color: var(--navy); }
+  .do { font-style: italic; color: var(--muted); font-size: 16px; }
+  .ask, .show { border-left: 4px solid var(--cyan); background: var(--ask-bg); padding: 12px 14px; border-radius: 6px; }
+  .show { border-color: var(--navy); background: var(--show-bg); }
+  .tag { display: block; font-size: 12px; font-weight: 800; letter-spacing: .08em; color: var(--cyan); margin-bottom: 4px; }
+  .show .tag { color: var(--navy); }
+  .ans { display: block; margin-top: 8px; color: var(--muted); font-size: 16px; }
+  footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 16px 14px; color: var(--muted); font-size: 14px;
+  }
+  footer button {
+    font: inherit; color: var(--navy); background: none; border: 1px solid var(--line);
+    border-radius: 999px; padding: 8px 16px;
+  }
+  .menu {
+    position: fixed; inset: 0; background: var(--bg); display: none; flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 16px) 16px 16px; gap: 10px; z-index: 2;
+  }
+  .menu.open { display: flex; }
+  .menu h1 { font-size: 18px; color: var(--navy); margin: 0 0 6px; }
+  .menu button {
+    font: inherit; text-align: left; color: var(--ink); background: var(--card);
+    border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; justify-content: space-between;
+  }
+  .menu button span { color: var(--muted); font-size: 15px; }
+  .hint { color: var(--muted); font-size: 14px; margin-top: auto; }
+</style>
+</head>
+<body>
+<header id="head"><span class="stage" id="stage"></span><span class="time" id="time"></span></header>
+<div class="bar"><i id="bar"></i></div>
+<main id="main"><div class="card" id="card"></div></main>
+<footer><button id="menuBtn">Sections</button><span id="count"></span></footer>
+
+<div class="menu" id="menu">
+  <h1>Points of Sail and the No-Go Zone · Level 1</h1>
+  <div id="sections" style="display:flex;flex-direction:column;gap:10px"></div>
+  <p class="hint">Tap the right of the card to go forward, the left to go back. Swipe works too.</p>
+  <button id="closeMenu">Close</button>
+</div>
+
+<script>
+const S = [
+  ["Introduction", "0:00–1:00"],
+  ["Wind and the no-go zone", "1:00–2:30"],
+  ["Going round the clock", "2:30–5:30"],
+  ["Check understanding", "5:30–8:30"],
+  ["Summary and link", "8:30–10:00"],
+];
+const ask = (q, a) => `<p class="ask"><span class="tag">ASK</span>${q}${a ? `<span class="ans">→ ${a}</span>` : ""}</p>`;
+const show = (q, a) => `<p class="show"><span class="tag">SHOW ME</span>${q}<span class="ans">→ ${a}</span></p>`;
+const doo = t => `<p class="do">[${t}]</p>`;
+
+const C = [
+  [0, doo("Stand beside the whiteboard, facing the group. Wait for quiet. Smile.") +
+      `<p>Hi everyone, I'm Tim. For the next ten minutes we're looking at <b>the points of sail and the no-go zone</b>.</p>`],
+  [0, `<p>By the end, you'll know <b>where you can't sail, where you can</b>, and how to use the different <b>points of sail</b> to get where you want to go on the water.</p>
+      <p>You'll even know how to <b>stop</b>, despite the fact your boat has no brakes!</p>`],
+  [0, ask("Before we start: hands up if you've been in a sailing boat before.") + doo("Note who. Use them later.")],
+
+  [1, doo("Draw the wind arrow at the top of the board.") +
+      `<p>Everything in sailing starts with the wind. It's our fuel: <b>invisible, and free</b>.</p>
+      <p>So the question I'll ask you more than any other is: where's it coming from?</p>`],
+  [1, ask("Where's the wind coming from right now? … [Name], how can you tell?",
+          `face, flags, the burgee, ripples. "Spot on. Your face is the best wind gauge you've got."`)],
+  [1, doo("Draw two lines about 45° either side of the arrow. Shade between them.") +
+      `<p>This shaded bit is the <b>no-go zone</b>. It's roughly 45 degrees either side of the wind, and a boat can't sail in here.</p>`],
+  [1, `<p>Imagine you're sailing in the middle of a <b>cake with a slice missing</b>.</p>
+      <p>The missing slice always faces the wind, and that's the bit you can't sail into.</p>`],
+  [1, doo("Sweep your hand round the rest of the circle.") +
+      `<p>But here's the good news: <b>everywhere else, the rest of the cake, the boat can sail.</b></p>
+      <p>So if you want to keep moving, the most important thing is: <b>don't point at the wind.</b></p>`],
+  [1, ask("So what do you think happens if I do point straight at the wind? … [Name]?", "the sail flaps, the boat slows and stops.") +
+      `<p>Exactly. That's called being <b>in irons</b>.</p>`],
+  [1, `<p>Now, that sounds like a problem. But it's actually really useful.</p>
+      <p>If you want to slow down or stop, point into the wind. It works like a <b>brake</b>.</p>
+      <p>If you ever get stuck in irons, don't worry. I'll show you how to get out of it <b>ashore</b>, before we go afloat.</p>`],
+  [1, `<p>One more thing the no-go zone does for us, before we even get wet.</p>
+      <p>When we rig ashore, we point the boat <b>into the wind</b>. The sail sits in the no-go zone, so it just flaps gently and can't power up.</p>`],
+
+  [2, doo("Pick up the boat model. Start just outside the no-go zone and turn it away from the wind, a step at a time.") +
+      `<p>So where can we sail? Let's go round the clock. Watch what happens to the sail as I turn away from the wind.</p>`],
+  [2, `<p><b>Close-hauled:</b> just outside the no-go zone. Sail pulled right in.</p>
+      <p><b>Close reach:</b> turn away a bit. Sail slightly out.</p>
+      <p><b>Beam reach:</b> wind straight across the side. Sail about half out.</p>
+      <p><b>Broad reach:</b> further round. Sail well out.</p>
+      <p><b>Training run:</b> nearly straight downwind. Sail almost all the way out.</p>`],
+  [2, `<p>Time for a quick vote. There are no wrong answers.</p>` +
+      ask(`<span class="do">[Point at each one.]</span> Hands up: which of these is the <b>fastest</b>? Close-hauled… beam reach… or training run?`) +
+      doo("Count the hands out loud.")],
+  [2, `<p>If you went for the training run, you're in good company: wind behind, so it must be fastest, right?</p>` +
+      doo("Point at the beam reach.") +
+      `<p>It's actually the <b>beam reach</b>. The sail works like a wing and <b>pulls</b> the boat along.</p>
+      <p>Downwind, the wind can only push you, and you can't go faster than the wind that's pushing.</p>`],
+  [2, `<p>So here's the one rule to take away:</p>
+      <p><b>The further you turn away from the wind, the more you let the sail out.</b></p>`],
+  [2, `<p>Think of the sail as your <b>accelerator</b>. Pull it in and you power up. Let it out and you ease off.</p>
+      <p>If you're ever not sure: <b>if in doubt, let it out.</b> A sail that's out too far just flaps. No drama.</p>`],
+  [2, `<p>So how do you know where it should be?</p>
+      <p>Let it out until it flaps, then <b>pull it in until it just stops flapping</b>. That's the sweet spot.</p>`],
+  [2, `<p>Going downwind, we use a <b>training run</b>. It's not quite dead downwind.</p>
+      <p>Keep the wind coming over the <b>back corner of the boat, opposite the boom</b>. That stops the boom swinging across on you.</p>`],
+  [2, ask("Quick test. Close-hauled, the sail's right in. Beam reach, it's half out. So on a broad reach? … [Name]?", `well out. "Nice."`)],
+  [2, ask(`<span class="do">[Point inside the no-go zone.]</span> If there's a buoy up here, upwind, how do we get to it? … [Name]?`, "zig-zag.") +
+      `<p>We <b>zig-zag</b>. Out to one side on a reach, turn across the wind, then reach the other way: <b>reach to reach</b>.</p>
+      <p>That turn is called a tack, and you'll practise it on the water.</p>`],
+  [2, `<p>And the centreboard, the board under the boat: <b>push it down to sail upwind.</b></p>
+      <p>For everything else today, I'll set it for you.</p>`],
+  [2, ask("So if the sail is your accelerator… where's your brake? … [Name]?", `point at the wind. "Into the no-go zone. Perfect."`)],
+
+  [3, doo("Hand out the sheets, worksheet side up.") +
+      `<p>Over to you. Three boats, no sail. For each one, look at the wind arrow, <b>write the name of the point of sail</b>, then draw a line from the mast, the dot, to where the sail should be.</p>
+      <p>90 seconds, then compare with the person next to you. Finish early? Bonus question at the top.</p>`],
+  [3, doo("After 90 seconds") + `<p>Pens down. Compare with your neighbour. Do you agree?</p>`],
+  [3, doo("After about 30 seconds") +
+      `<p>Now turn it over and check. That side's yours to keep.</p>` + doo("Point at the board.") +
+      `<p>Boat 1: <b>close-hauled</b>, sail right in.<br>Boat 2: <b>beam reach</b>, about half out.<br>Boat 3: <b>training run</b>, almost all the way out.</p>
+      <p>How did you do?</p>`],
+  [3, doo("Hand the boat model to a student.") +
+      show(`[Name], you're the sailor. You're coming in to the pontoon a bit too fast. <b>Show me two ways to slow down.</b>`,
+           `let the sail out, then turn into the wind. "Brilliant. Accelerator off, then brake."`)],
+  [3, show(`<span class="do">[Pass the model on.]</span> [Name], I want you to stop and wait for me. <b>Show me.</b>`,
+           "close reach, sail right out and flapping.") +
+      `<p>That's called <b>lying-to</b>. I think of it as being parked: the boat sits still, and you're in control.</p>`],
+
+  [4, `<p>So, let's pull it together.</p>
+      <p><b>Wind first.</b> Always know where it's coming from.</p>
+      <p><b>The no-go zone:</b> you can't sail into it, but you can use it as your brake.</p>
+      <p><b>The further you turn away from the wind, the more you let the sail out.</b></p>`],
+  [4, ask(`<span class="do">[Point at each position in turn.]</span> Let's name them together. This one? … And this one?`, "the group calls them out.")],
+  [4, doo("Point at a real flag or the burgee.") +
+      `<p>Look at that flag. The wind's coming from [there] today, so when we leave the pontoon, we'll be on a [beam reach].</p>
+      <p>And out on the water, I'm going to keep asking you where the wind's from!</p>`],
+  [4, `<p>Thanks, everyone. Let's go and get the boats rigged.</p>` + doo("Done. Breathe.")],
+];
+
+const $ = id => document.getElementById(id);
+let i = 0;
+try { i = Math.min(+localStorage.getItem("pos") || 0, C.length - 1); } catch (e) {}
+
+function render() {
+  const [s, html] = C[i];
+  $("stage").textContent = S[s][0];
+  $("time").textContent = S[s][1];
+  $("card").innerHTML = html;
+  $("card").scrollTop = 0;
+  $("count").textContent = `${i + 1} / ${C.length}`;
+  $("bar").style.width = `${((i + 1) / C.length) * 100}%`;
+  try { localStorage.setItem("pos", i); } catch (e) {}
+}
+const go = d => { i = Math.max(0, Math.min(C.length - 1, i + d)); render(); };
+
+$("main").addEventListener("click", e => go(e.clientX > innerWidth / 3 ? 1 : -1));
+let x0 = null;
+$("main").addEventListener("touchstart", e => { x0 = e.touches[0].clientX; }, { passive: true });
+$("main").addEventListener("touchend", e => {
+  const dx = e.changedTouches[0].clientX - x0;
+  if (Math.abs(dx) > 50) { e.preventDefault(); go(dx < 0 ? 1 : -1); }
+});
+document.addEventListener("keydown", e => {
+  if (["ArrowRight", " ", "PageDown"].includes(e.key)) go(1);
+  if (["ArrowLeft", "PageUp"].includes(e.key)) go(-1);
+});
+
+S.forEach(([name, time], s) => {
+  const b = document.createElement("button");
+  b.innerHTML = `${name}<span>${time}</span>`;
+  b.onclick = () => { i = C.findIndex(c => c[0] === s); render(); $("menu").classList.remove("open"); };
+  $("sections").appendChild(b);
+});
+$("menuBtn").onclick = $("head").onclick = () => $("menu").classList.add("open");
+$("closeMenu").onclick = () => $("menu").classList.remove("open");
+
+// Keep the screen awake while rehearsing.
+async function wake() { try { await navigator.wakeLock?.request("screen"); } catch (e) {} }
+wake();
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") wake(); });
+
+render();
+</script>
+</body>
+</html>
